@@ -2,6 +2,7 @@
 const nodeExternals = require('webpack-node-externals');
 const { RunScriptWebpackPlugin } = require('run-script-webpack-plugin');
 
+// 핫리로더 관련 세팅
 module.exports = function (options, webpack) {
   return {
     ...options,

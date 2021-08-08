@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('CHANNEL')
 @Controller('api/workspaces/:url/channels')
 export class ChannelsController {
   @Get()
@@ -12,14 +14,14 @@ export class ChannelsController {
   getSpecificChannel() {}
 
   @Get(':name/chats')
-  getChats(@Body body) {}
+  getChats() {}
 
   @Post(':name/chats')
-  postChat(@Body body) {}
+  postChat() {}
 
   @Get(':name/members')
-  getAllmembers(@Body() body) {}
+  getAllmembers() {}
 
   @Post(':name/members')
-  invitemembers(@Body() body) {}
+  invitemembers() {}
 }

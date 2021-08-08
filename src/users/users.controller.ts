@@ -1,11 +1,22 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JoinRequestDto } from './dto/join.request.dto';
 import { UsersService } from './users.service';
 import { ApiTags } from '@nestjs/swagger';
 import { UserDto } from 'src/common/dto/user.dto';
 import { User } from 'src/common/decorator/user.decorator';
+import { UndefinedToNullInterceptor } from 'src/common/interceptors/undefinedToNull.interceptor';
 
+// 리턴값을 잡아 undefined -> null화 해주는 인터셉터를 /users 컨트롤러에 전체 적용함! 물론 개별 라우터 적용도 가능
+@UseInterceptors(UndefinedToNullInterceptor)
 @ApiTags('USER')
 // path prefix
 @Controller('api/users')
@@ -24,6 +35,7 @@ export class UsersController {
   }
 
   @ApiOperation({ summary: '회원가입' })
+  // @UseInterceptors ~ 적용 가능
   @Post()
   postUsers(@Body() data: JoinRequestDto) {
     this.usersService.postUsers(data.email, data.nickname, data.password);

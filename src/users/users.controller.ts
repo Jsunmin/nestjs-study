@@ -4,6 +4,7 @@ import { JoinRequestDto } from './dto/join.request.dto';
 import { UsersService } from './users.service';
 import { ApiTags } from '@nestjs/swagger';
 import { UserDto } from 'src/common/dto/user.dto';
+import { User } from 'src/common/decorator/user.decorator';
 
 @ApiTags('USER')
 // path prefix
@@ -17,8 +18,9 @@ export class UsersController {
   })
   @ApiOperation({ summary: '내 정보 조회' }) // 스웨거 정보 기입
   @Get()
-  getUsers(@Req() req) {
-    return req.user;
+  getUsers(@User() user) {
+    // req.user를 가져오는 커스텀 데코레이터로 요청객체의 특정 정보 가져온다
+    return user;
   }
 
   @ApiOperation({ summary: '회원가입' })
@@ -39,7 +41,9 @@ export class UsersController {
   })
   @ApiOperation({ summary: '로그인' })
   @Post('login') // sub path 세팅
-  logIn() {}
+  logIn(@User() user) {
+    return user;
+  }
 
   @ApiOperation({ summary: '로그아웃' })
   @Post('logout')

@@ -194,60 +194,107 @@
     - 2인자: 특정 지점에서 라우트 핸들러 메서드를 호출( *AOP ~ pointcut* )할 수 있게 해주는 handler
       Observable을 반환하며, 이를 통해 공통 로직(Aspect) 모듈화 및 추가로직 삽입 가능
   - ex)
-    - 1. 요청의 처음과 끝을 잡아 타이머 처리
-      ```
-      @Injectable()
-      export class LoggingInterceptor implements NestInterceptor {
-        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-          console.log('Before...'); // 요청 실행전 로직
-          const now = Date.now();
-          return next // 요청 실행후 로직
-            .handle()
-            .pipe(
-              tap(() => console.log(`After... ${Date.now() - now}ms`)),
-            );
-        }
-      }
-      ```
-    - 2. 컨트롤러의 리턴값 일괄 처리 (obj로 감싼..)
-      ```
-      @Injectable()
-      export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
-        intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
-          return next.handle().pipe(map(data => ({ data })));
-          // 또는 이런식으로 활용도 가능
-          // .pipe(map(value => value === null ? '' : value ));
-        }
-      }
-      ```
-    - 3. 예외 처리 ~ 예외 재정의 ~ 그래도 exception filter로 쓰자!
-      ```
-      @Injectable()
-      export class ErrorsInterceptor implements NestInterceptor {
-        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-          return next
-            .handle()
-            .pipe(
-              catchError(err => throwError(new BadGatewayException())),
-            );
-        }
-      }
-      ```
-    - 4. 요청 스트림 덮어쓰기 ~ 특정 조건시 요청핸들러로 보내지 않고, 다른값 전달 ex) 캐싱 데이터 제공
-      ```
-      @Injectable()
-      export class CacheInterceptor implements NestInterceptor {
-        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-          const isCached = true;
-          if (isCached) {
-            // RxJS of() 연산자에 의해 생성된 새 스트림을 여기에 반환 (핸들러 호출X)
-            return of([]); // 핸들러 종료 시점까지 가지 않고 바로 리턴 처리!
+      1. 요청의 처음과 끝을 잡아 타이머 처리
+        ```
+        @Injectable()
+        export class LoggingInterceptor implements NestInterceptor {
+          intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+            console.log('Before...'); // 요청 실행전 로직
+            const now = Date.now();
+            return next // 요청 실행후 로직
+              .handle()
+              .pipe(
+                tap(() => console.log(`After... ${Date.now() - now}ms`)),
+              );
           }
-          return next.handle();
         }
-      }
-      ```
+        ```
+      2. 컨트롤러의 리턴값 일괄 처리 (obj로 감싼..)
+        ```
+        @Injectable()
+        export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
+          intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
+            return next.handle().pipe(map(data => ({ data })));
+            // 또는 이런식으로 활용도 가능
+            // .pipe(map(value => value === null ? '' : value ));
+          }
+        }
+        ```
+      3. 예외 처리 ~ 예외 재정의 ~ 그래도 exception filter로 쓰자!
+        ```
+        @Injectable()
+        export class ErrorsInterceptor implements NestInterceptor {
+          intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+            return next
+              .handle()
+              .pipe(
+                catchError(err => throwError(new BadGatewayException())),
+              );
+          }
+        }
+        ```
+      4. 요청 스트림 덮어쓰기 ~ 특정 조건시 요청핸들러로 보내지 않고, 다른값 전달 ex) 캐싱 데이터 제공
+        ```
+        @Injectable()
+        export class CacheInterceptor implements NestInterceptor {
+          intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+            const isCached = true;
+            if (isCached) {
+              // RxJS of() 연산자에 의해 생성된 새 스트림을 여기에 반환 (핸들러 호출X)
+              return of([]); // 핸들러 종료 시점까지 가지 않고 바로 리턴 처리!
+            }
+            return next.handle();
+          }
+        }
+        ```
   - ```@UseInterceptors(LoggingInterceptor)``` ~ 로 컨트롤러에 적용 (전역|타겟)
   - 글로벌 인터셉터는 부트스트랩에서 app.useGlobalInterceptors(new 인터셉터)로 적용 ~ DI 불가..
      또는 @Module 에서 provider로 파이프를 제공 가능 ~ DI 가능 ~ APP_INTERCEPTOR
   - async 형태의 인터셉터도 적용 가능하다!
+
+### Custom Decorator
+  - Decorator: 함수로, 다음에 처리될 함수(메서드)를 인자로 받아 동작을 수정|추가해서 반환하는 함수 ~ *고차함수*
+  - ex)
+    1. 요청 객체의 특정 정보 겟
+      ```
+      export const User = createParamDecorator(
+        (data: unknown, ctx: ExecutionContext) => {
+          const request = ctx.switchToHttp().getRequest();
+          return request.user;
+        },
+      );
+      ...
+      async findOne(@User() user: UserEntity) {
+        console.log(user);
+      }
+      ```
+    2. 특정 객체내 세부 속성 겟 ( == @Param('id') )
+      ```
+      export const User = createParamDecorator(
+        (data: string, ctx: ExecutionContext) => {
+          const request = ctx.switchToHttp().getRequest();
+          const user = request.user;
+          return data ? user?.[data] : user; // 데이터 key 접근
+        },
+      );
+      ...
+      async findOne(@User('firstName') firstName: string) {
+        console.log(`Hello ${firstName}`);
+      }
+      ```
+  - 이렇게 커스텀 선언한 데코레이터에도 validation Pipe 적용이 가능하다
+  - 데코레이터 조합 : 복수의 데코레이터를 조합한 데코레이터 생성
+    ```
+    export function Auth(...roles: Role[]) {
+      return applyDecorators(
+        SetMetadata('roles', roles),
+        UseGuards(AuthGuard, RolesGuard),
+        ApiBearerAuth(),
+        ApiUnauthorizedResponse({ description: 'Unauthorized' }),
+      );
+    }
+    ...
+    @Get('users')
+    @Auth('admin') // 4개의 데코레이터를 조합해서 하나의 데코레이터로 처리!
+    findAllUsers() {}
+    ```

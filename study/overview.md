@@ -67,10 +67,13 @@
         - regex로 path 필터 가능
   - cf. 간단한 기능은 클래스보단 함수형 미들웨어로 정의 & apply 하자
   - 복수의 미들웨어는 apply(aM, bM, cM)으로 순차적으로 연결시킨다
-  - cf. 글로벌 미들웨어는 NestFactory (엔트리파일)에서 app.use(middleware) 로 적용시킬 수 있다.
+  - 글로벌 미들웨어는 NestFactory (엔트리파일)에서 app.use(middleware) 로 적용시킬 수 있다.
      ~ 이 때는 DI가 안되므로 함수형 미들웨어로!
      또는 root @Module 에서 미들웨어를 전역 적용시킬 수 있다.
   - *미들웨어는 호출될 핸들러 및 매개변수를 포함하여 실행 컨텍스트를 인식하지 못한다!*
+
+
+#### *아래는 특정한 기능을 위한 담당하는 객체 ~ 미들웨어 or 인터셉터의 하위집합 느낌?!*
 
 ### Exception filters
  : 예외처리를 한 곳에서 담당하는 exception layer
@@ -90,7 +93,7 @@
     ```@UseFilters(new CustomExceptionFilter())``` → DI
     or ```throw new ForbiddenException();``` ~ 내부에서 예외 인스턴스 throw.. 
      ~ *가능한 경우, 인스턴스 대신 클래스( **@UseFilters** )를 통해 필터 주입하는게 좋다! (메모리 사용량 down)*
-  - cf. 글로벌 예외 필터는 부트스트랩에서 app.useGlobalFilters(new 예외필터클래스)로 적용시킨다! ~ DI 불가..
+  - 글로벌 예외 필터는 부트스트랩에서 app.useGlobalFilters(new 예외필터클래스)로 적용 ~ DI 불가..
     또는 @Module 에서 provider로 예외필터를 제공 가능 ~ DI 가능 & 복수의 예외필터 적용 가능 ~ APP_FILTER
   - cf. 처리되지 않은 모든 예외 잡기
     ```
@@ -101,6 +104,150 @@
     ```
 
 ### Pipes
+ : @Injectable() 데코레이터가 달린 클래스로 요청 전처리를 담당
+  - 2가지 전처리 목적으로 활용됨
+    1. 변환 (Parse*Pipe): 입력데이터를 변환 ~ 파싱 (문자열 → 정수)
+        ~ 파라미터/쿼리 등의 데이터값이 parsing 처리로 라우트 처리전에 exception 을 던질 수 있음
+        ```@Param('uuid', new ParseUUIDPipe()) uuid: string```
+    2. 유효성 검사 (ValidationPipe): 입력 데이터 평가 ~ pass / exception 
+        ~ pipe 또한 예외처리영역에서 수행됨 ~ catch 가능!
+  - custom pipe: PipeTransform에서 implement 받아 구현
+    ~ transform(value, metadata) 함수로 리턴값 정의
+      value: 라우트에서 처리될 인수, metadata: 인수에 대한 메타정보
+    - ex) 객체로된 DTO를 검증할 때 → joi lib으로 커스텀 벨리데이션 파이프라인 생성
+      ```
+      @Injectable()
+      export class JoiValidationPipe implements PipeTransform {
+        constructor(private schema: ObjectSchema) {}
+        transform(value: any, metadata: ArgumentMetadata) { ... }
+      ```
+    - ```@UsePipes(new JoiValidationPipe(createCatSchema))``` 컨트롤러에 바인딩
+  - cf. **class-validator**, **class-transformer** 를 활용해 클래스 벨리데이터를 만들 수 있다. ~ 공홈 참고
+  - 글로벌 파이프는 부트스트랩에서 app.useGlobalPipes(new 벨리데이션 파이프)로 적용 ~ DI 불가..
+     또는 @Module 에서 provider로 파이프를 제공 가능 ~ DI 가능 ~ APP_PIPE
+  - default value: 변환시(1), 특정 타입이 아닌 undefined, null인 경우 예외 발생..
+    이 경우 default를 제공함으로써 예외를 피할 수 있다
+    new DefaultValuePipe(값)
+    ```@Query('page', new DefaultValuePipe(0), ParseIntPipe) page: number ...```
 
+*cf. 요청은 Client → Exception filters → Pipes → route handler 로 도달한다*
 
 ### Guards
+ : @Injectable() 데코레이터가 달린 클래스로 런타임에 존재하는 보안적 전처리를 담당
+  Client → Middleware → Guard → Guard → (Intercept|Pipe) → route handler
+  ex) 권한, 역할, ACL .. ~ 부합하면 라우터 핸들러로 전달 -> **승인/인증**
+  - CanActivate라는 인터페이스를 받아 구현
+    ~ canActivate() 함수로 실행 컨텍스트를 받아 판단함
+  - 토큰을 통해 authorization & authentication을 담당하는 가드
+    ```
+    @Injectable()
+    export class AuthGuard implements CanActivate {
+      canActivate(
+        context: ExecutionContext,
+      ): boolean | Promise<boolean> | Observable<boolean> {
+        const request = context.switchToHttp().getRequest();
+        ... // request 내부의 토큰을 통한 권한 처리 (인증 및 롤 통한 권한 체크)
+      }
+    }
+    ```
+  - ```@UseGuards(RolesGuard)``` 컨트롤러에 바인딩 (일부 || 전체 적용)
+  - 글로벌 가드는 부트스트랩에서 app.useGlobalGuards(new 가드)로 적용 ~ DI 불가..
+     또는 @Module 에서 provider로 파이프를 제공 가능 ~ DI 가능 ~ APP_GUARD
+  - 특정 role만 허용하는 핸들러 가드
+    ~ 실행 컨택스트를 통해, 유효한 롤 정보 받음
+    - 특정 컨트롤러에 @SetMetadata() 데코레이터를 통해, 롤을 지정함 ~ 가드는 이를 ctx로 받아 보안 전처리
+      ```@SetMetadata('roles', ['admin'])```
+    - 더 나아가, 이를 통해, 커스텀 데코레이터를 만들어 적용시키기도 한다.
+      - ```export const Roles = (...roles: string[]) => SetMetadata('roles', roles);``` ~ 커스텀 데코레이터 선언
+      - ```@Roles('admin') ...``` ~ 커스텀 데코레이터 컨트롤러에 적용
+    - 컨트롤러가 허용한 롤을 확인할 때에는, next/core가 제공하는 **reflector**를 활용한다.
+      - Reflector를 DI를 통해 받아 온 다음
+      ```constructor(private reflector: Reflector) {}```
+      - 가드 내부 로직에서 실행컨택스트 -> 컨트롤러 -> 롤 정보 겟!
+      ```
+      const roles = this.reflector.get<string[]>('roles', context.getHandler());
+      if (!roles) {
+        return true;
+      }
+      ...
+      matchRoles(roles, user.roles); // 유저의 role과 컨트롤러 role 비교
+      ```
+
+  - 가드의 예외
+    - 권한/인증에 대한 예외 처리로, ```throw new UnauthorizedException();``` 로 대응
+    - 가드가 던진 예외는 예외계층에 잡힌다. (예외 계층내 처리 가능)
+
+### Interceptors
+ : @Injectable() 데코레이터가 달린 클래스로 Spring의 AOP(Aspect Oriented Programming) 담당
+  > 인터셉터는 전체 애플리케이션에서 발생하는 요구사항에 대한 재사용 가능한 솔루션을 만드는데 큰 가치를 둡니다.
+  
+  - 사용 사례)
+    * 메소드 실행 전/후 추가 로직
+    * 함수 리턴|예외 결과 변환
+    * 기본 기능 동적 확장
+    * 조건에 따른 기능 재정의 (캐싱?)
+
+  - RxJS의 Observable을 활용해, 해당 함수로 스트림을 연산처리시킨다. (tab, map...)
+  - NestInterceptor 인터페이스를 적용해 구현
+    ```intercept(context: ExecutionContext, next: CallHandler)``` ~ 라는 함수로 구현
+    - 1인자: 실행컨텍스트 정보 겟
+    - 2인자: 특정 지점에서 라우트 핸들러 메서드를 호출( *AOP ~ pointcut* )할 수 있게 해주는 handler
+      Observable을 반환하며, 이를 통해 공통 로직(Aspect) 모듈화 및 추가로직 삽입 가능
+  - ex)
+    - 1. 요청의 처음과 끝을 잡아 타이머 처리
+      ```
+      @Injectable()
+      export class LoggingInterceptor implements NestInterceptor {
+        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+          console.log('Before...'); // 요청 실행전 로직
+          const now = Date.now();
+          return next // 요청 실행후 로직
+            .handle()
+            .pipe(
+              tap(() => console.log(`After... ${Date.now() - now}ms`)),
+            );
+        }
+      }
+      ```
+    - 2. 컨트롤러의 리턴값 일괄 처리 (obj로 감싼..)
+      ```
+      @Injectable()
+      export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
+        intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
+          return next.handle().pipe(map(data => ({ data })));
+          // 또는 이런식으로 활용도 가능
+          // .pipe(map(value => value === null ? '' : value ));
+        }
+      }
+      ```
+    - 3. 예외 처리 ~ 예외 재정의 ~ 그래도 exception filter로 쓰자!
+      ```
+      @Injectable()
+      export class ErrorsInterceptor implements NestInterceptor {
+        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+          return next
+            .handle()
+            .pipe(
+              catchError(err => throwError(new BadGatewayException())),
+            );
+        }
+      }
+      ```
+    - 4. 요청 스트림 덮어쓰기 ~ 특정 조건시 요청핸들러로 보내지 않고, 다른값 전달 ex) 캐싱 데이터 제공
+      ```
+      @Injectable()
+      export class CacheInterceptor implements NestInterceptor {
+        intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+          const isCached = true;
+          if (isCached) {
+            // RxJS of() 연산자에 의해 생성된 새 스트림을 여기에 반환 (핸들러 호출X)
+            return of([]); // 핸들러 종료 시점까지 가지 않고 바로 리턴 처리!
+          }
+          return next.handle();
+        }
+      }
+      ```
+  - ```@UseInterceptors(LoggingInterceptor)``` ~ 로 컨트롤러에 적용 (전역|타겟)
+  - 글로벌 인터셉터는 부트스트랩에서 app.useGlobalInterceptors(new 인터셉터)로 적용 ~ DI 불가..
+     또는 @Module 에서 provider로 파이프를 제공 가능 ~ DI 가능 ~ APP_INTERCEPTOR
+  - async 형태의 인터셉터도 적용 가능하다!

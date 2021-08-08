@@ -89,7 +89,7 @@
   - 이렇게 정의한 예외필터는 컨트롤러(전체 or 단일)에 데코레이터로 붙임
     ```@UseFilters(new CustomExceptionFilter())``` → DI
     or ```throw new ForbiddenException();``` ~ 내부에서 예외 인스턴스 throw.. 
-     ~ *가능한 경우, 인스턴스 대신 클래스(**@UseFilters**)를 통해 필터 주입하는게 좋다! (메모리 사용량 down)*
+     ~ *가능한 경우, 인스턴스 대신 클래스( **@UseFilters** )를 통해 필터 주입하는게 좋다! (메모리 사용량 down)*
   - cf. 글로벌 예외 필터는 부트스트랩에서 app.useGlobalFilters(new 예외필터클래스)로 적용시킨다! ~ DI 불가..
     또는 @Module 에서 provider로 예외필터를 제공 가능 ~ DI 가능 & 복수의 예외필터 적용 가능 ~ APP_FILTER
   - cf. 처리되지 않은 모든 예외 잡기
@@ -99,3 +99,8 @@
         catch(exception: unknown, host: ArgumentsHost) { ... }
     }
     ```
+
+### Pipes
+
+
+### Guards

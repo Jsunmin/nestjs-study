@@ -18,6 +18,7 @@ import { DMs } from './DMs';
 import { Mentions } from './Mentions';
 import { WorkspaceMembers } from './WorkspaceMembers';
 import { Workspaces } from './Workspaces';
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 
 @Index('email', ['email'], { unique: true })
 @Entity({ schema: 'sleact', name: 'users' })
@@ -30,6 +31,7 @@ export class Users {
   @PrimaryGeneratedColumn({ type: 'int', name: 'id' })
   id: number;
 
+  @IsEmail() // class-validator를 통해 dto에서 유효체크를 처리! ~ 비즈니스로직에서할 필요 X
   @ApiProperty({
     example: 'min@gmail.com',
     description: '이메일',
@@ -38,6 +40,8 @@ export class Users {
   @Column('varchar', { name: 'email', unique: true, length: 30 })
   email: string;
 
+  @IsString()
+  @IsNotEmpty()
   @ApiProperty({
     example: 'Jm',
     description: '닉네임',
@@ -46,6 +50,8 @@ export class Users {
   @Column('varchar', { name: 'nickname', length: 30 })
   nickname: string;
 
+  @IsString()
+  @IsNotEmpty()
   @ApiProperty({
     example: 'qwer1234',
     description: '비밀번호',

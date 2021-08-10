@@ -11,7 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const port = process.env.PORT || 3000;
 
-  // JAVA에서 자주 쓰이는 빌더 패턴
+  // Swagger: JAVA에서 자주 쓰이는 빌더 패턴
   const config = new DocumentBuilder()
     .setTitle('Sleact API')
     .setDescription('Sleact 개발을 위한 API 문서입니다.')

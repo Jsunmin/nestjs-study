@@ -10,6 +10,8 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ChannelsModule } from './channels/channels.module';
 import { DmsModule } from './dms/dms.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpExceptionFilter } from './http-exception.filter';
+import { APP_FILTER } from '@nestjs/core';
 
 // 모든 모듈을 연결하는 root 모듈
 @Module({
@@ -27,7 +29,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   ],
   // 라우터
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      // 글로벌 예외필터 추가
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    HttpExceptionFilter,
+  ],
 })
 export class AppModule implements NestModule {
   // 어플리케이션 전역에 적용된다!

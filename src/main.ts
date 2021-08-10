@@ -46,3 +46,6 @@ async function bootstrap() {
   console.log(`listening on port ${port}`);
 }
 bootstrap();
+
+// mysql 도커
+// docker exec -it sleact-mysql /bin/sh

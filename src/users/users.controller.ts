@@ -37,8 +37,8 @@ export class UsersController {
   @ApiOperation({ summary: '회원가입' })
   // @UseInterceptors ~ 적용 가능
   @Post()
-  postUsers(@Body() data: JoinRequestDto) {
-    this.usersService.postUsers(data.email, data.nickname, data.password);
+  async postUsers(@Body() data: JoinRequestDto) {
+    await this.usersService.postUsers(data.email, data.nickname, data.password);
   }
 
   // 스웨거 응답 타입 및 케이스 정의

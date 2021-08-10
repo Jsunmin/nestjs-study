@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { JoinRequestDto } from 'src/users/dto/join.request.dto';
+import { JoinRequestDto } from '../../users/dto/join.request.dto';
 
 // 공통 DTO
 

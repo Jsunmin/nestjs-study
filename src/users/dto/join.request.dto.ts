@@ -1,27 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { PickType } from '@nestjs/swagger';
+import { Users } from '../../entities/Users';
+// 공통 DTO
 
-export class JoinRequestDto {
-  @ApiProperty({
-    example: 'min@gmail.com',
-    description: '이메일',
-    required: true,
-  })
-  public email: string;
-
-  @ApiProperty({
-    example: 'Jm',
-    description: '닉네임',
-    required: true,
-  })
-  public nickname: string;
-
-  @ApiProperty({
-    example: 'qwer1234',
-    description: '비밀번호',
-    required: true,
-  })
-  public password: string;
-}
+// 상속받아서 확장 ~ 기존 DTO에서 PickType으로 클래스 프로퍼티 추출!
+export class JoinRequestDto extends PickType(Users, [
+  'email',
+  'nickname',
+  'password',
+] as const) {}
 
 /**
  * Nest 에서는 interface 보다 class를 씀

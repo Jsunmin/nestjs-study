@@ -300,3 +300,191 @@
   #### moduleRef class
     - 참조받는 한쪽 클래스에서 ModuleRef 클래스를 사용하여, 순환 관계의 다른 프로바이더를 검색 (아래)
 
+
+### Module reference
+  : ModuleRef 클래스로 내부 프로바이더 목록 탐색 & 참조 ~ 토큰 통해서
+
+    ```
+    @Injectable()
+    export class CatsService {
+      constructor(private moduleRef: ModuleRef) {}
+      
+      ... // 대충 다른 프로바이더 참조해 작업하는 내용
+    }
+    ```
+  - ex)
+    1. 특정 서비스 프로바이더에서, 현재 모듈의 DI 받지 않은 프로바이더를 참조할 때
+    2. 특정 서비스 프로바이더에서, 전역 레벨의 프로바이더를 참조할 때
+    3. 특정 서비스 프로바이더에서, scope 제한된 모듈 || 해당 요청의 모듈(REQUEST SCOPE) 을 참조할 때
+
+  - get(): [토큰|클래스]명을 통해 **현재 모듈**에 인스턴스로 떠있는 주입가능 객체 (프로바이더, 컨트롤러, 가드, 인터셉터...) 들을 검색
+      기본은 소속한 모듈내 검색이고, 전역 컨텍스트에서의 검색은 ```this.moduleRef.get(Service, { strict: false });``` ~ strict 옵션을 통해!
+  - resolve(): scope가 지정된(TRANSIENT, REQUEST) 프로바이더를 동적으로 확인할 때 사용
+    - 이 때, resolve()는 호출될 때마다, 고유한 컨텍스트에서 인스턴스를 생성해 리턴 (같은 객체를 불러도, 다른 인스턴스임)
+      같은 컨텍스트 내에서 resolve()로 객체를 불러오려면, ContextIdFactory로 만든 contextId를 옵션으로 줘 컨텍스트를 맞춘다.
+      ~ 이렇게 Scope 프로바이더를 불러오는 경우, request로 인한 생성 (Nest 의도 injection)이 아니어서, undefined로 불러오게 됨 -> 이를 contextId로 맞춰줌
+      ```
+      async onModuleInit() {
+        const transientServices1 = await Promise.all([
+          this.moduleRef.resolve(TransientService),
+          this.moduleRef.resolve(TransientService),
+        ]);
+        console.log(transientServices1[0] === transientServices1[1]); // false ~ 다른 컨텍스트에서 인스턴스 겟
+        
+        ...
+
+        const contextId = ContextIdFactory.create();  // 컨텍스트 생성
+        const transientServices2 = await Promise.all([
+          this.moduleRef.resolve(TransientService, contextId),
+          this.moduleRef.resolve(TransientService, contextId),
+        ]);
+        console.log(transientServices2[0] === transientServices2[1]); // true
+      }
+      ```
+    - 요청 컨텍스트 내에서 프로바이더 참조
+      ```
+      @Injectable()
+      export class CatsService {
+        constructor(
+          @Inject(REQUEST) private request: Record<string, unknown>, // request provider (Scope) 불러옴
+        ) {}
+
+        const contextId = ContextIdFactory.getByRequest(this.request);  // 요청을 통해 contextId 겟
+        const catsRepository = await this.moduleRef.resolve(CatsRepository, contextId); // 해당 contextId의 인스턴스 (scoped?) 호출
+
+      }
+      ```
+  - 이전에 등록되지 않은 클래스로 인스턴스화 & 참조
+    ```
+    @Injectable()
+    export class CatsService implements OnModuleInit {
+      private catsFactory: CatsFactory;
+      constructor(private moduleRef: ModuleRef) {}
+
+      async onModuleInit() {
+        this.catsFactory = await this.moduleRef.create(CatsFactory); // 종속관계 없고 moduleRef로 참조한 클래스로 인스턴스 생성!
+      }
+    }
+    ```
+
+
+### Lazy-loading modules
+  : 기본적으로 모듈은 즉시 로드. 지연로드 기능을 통해 빠른 애플리케이션 init이 가능! ~ DP) proxy pattern
+
+  - lazyModuleLoader 클래스로 구현
+    ```
+    @Injectable()
+    export class CatsService {
+      constructor(private lazyModuleLoader: LazyModuleLoader) {}
+    }
+    ```
+  - main.ts (부트스트랩) 초기 시작시 lazyLoading 세팅
+    ```
+    ...
+    const lazyModuleLoader = app.get(LazyModuleLoader);
+
+    ... // 서버 스타트..
+
+    const { LazyModule } = await import('./lazy.module');
+    const moduleRef = await this.lazyModuleLoader.load(() => LazyModule);
+    ```
+  - lazy module 호출
+    lazyModuleLoader.load()를 통해 내부 프로바이더의 객체를 지연 참조함
+    ```
+    @Module({
+      providers: [LazyService],
+      exports: [LazyService],
+    })
+    export class LazyModule {}
+    
+    ...
+
+    const { LazyModule } = await import('./lazy.module');
+    const moduleRef = await this.lazyModuleLoader.load(() => LazyModule); // load()로 지연 겟
+
+    const { LazyService } = await import('./lazy.service');
+    const lazyService = moduleRef.get(LazyService);         // 지연 모듈의 서비스 프로바이더 가져와 실행
+    ```
+  - lazy loading도 지연 로딩이 완료되면, 다른 nest 모듈과 동일 (첫 로딩 후 캐싱 & 같은 모듈 그래프 공유)
+  - lazy loading으로 불러오는 모듈오는 모듈에는 추가 작업 필요 X
+  - lazy loaded 모듈은 전역 모듈/인터셉터,가드 등으로 작동 X
+  - 컨트롤러, 리졸버, 게이트웨이는 lazyModuleLoader로 지연 로드 X
+  - 보통, 하위 서비스로 불려오는 기능 (ex 브라우저 기능 쓰는)일 때 비즈니스 로직내 Lazy loading 활용
+
+
+### Execution context
+  : 실행 컨텍스트를 통해, 한 비즈니스로직을 처리하는 여러 독립된 객체에 같은 데이터를 공유할 수 있게된다.
+
+  ### argumentsHost class
+    - 요청 핸들러의 인수 데이터를 캡슐화해서 제공
+      http: [request, response, next]
+      gql: [root, args, context, info]
+    - 보통 host로 받아, 프로토콜(.getType) / 핸들러 인수(.getArgs)
+       / 프로토콜에 맞는 데이터(.switchToXXXX) http의 경우, request, response 등 ex) host.switchToHttp().getRequest()
+
+  ### executionContext class
+    - ArgumentsHost를 확장하여 현재 실행 프로세스에 대한 추가 세부 정보를 제공
+    - ex)
+      getClass(): 핸들러가 포함된 컨트롤러명(class명) 겟
+      getHandler(): 핸들러가 포함된 요청 메서드 하위 함수명 겟
+    - @SetMetadata()
+      해당 데코레이터를 통해, 특정 라우트 핸들러에 붙은 데이터를 가져올 수 있다.
+      ex) 해당 라우트의 authentication role 조건 정보
+      핸들러에 맵핑된 정보를 가져와 인터셉터, 가드 등에서 활용!
+      ```
+      // role 관련 커스텀 테코레이터 생성 (@SetMetadata 사용)
+      export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
+
+      ...
+
+      // Role 커스텀 데코 붙인 컨트롤러
+      @Post()
+      Roles('admin')
+      async create(@Body() createCatDto: CreateCatDto) {
+        this.catsService.create(createCatDto);
+      }
+
+      ...
+
+      // 가드
+      @Injectable()
+      export class RolesGuard {
+        constructor(private reflector: Reflector) {}
+
+        // Reflector 헬퍼를 통해 커스텀 데이터 겟 ~ 이 때, 핸들러명을 executionContext에서 가져온다!
+        const roles = this.reflector.get<string[]>('roles', context.getHandler());
+      }
+      ```
+
+      cf) Reflector 헬퍼 추가 기능
+      ```
+      // 컨트롤러와 핸들러에서 복수 커스텀 데이터 겟 (role)
+
+      // 컨트롤러
+      @Roles('user')
+      @Controller('cats')
+      export class CatsController {
+        @Post()
+        @Roles('admin')
+        async create(@Body() createCatDto: CreateCatDto) {
+          this.catsService.create(createCatDto);
+        }
+      }
+
+
+      // 가드1 : 이 경우 핸들러의 데이터로 덮어써서 가져온다! return ['admin']
+      ...
+        const roles = this.reflector.getAllAndOverride<string[]>('roles', [
+          context.getHandler(),
+          context.getClass(),
+        ]);
+      ...
+
+      // 가드2 : 이 경우 핸들러와 컨트롤러의 데이터를 머지해서 가져온다! return ['admin', 'user']
+      ...
+        const roles = this.reflector.getAllAndMerge<string[]>('roles', [
+          context.getHandler(),
+          context.getClass(),
+        ]);
+      ...
+      ```

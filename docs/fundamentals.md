@@ -488,3 +488,167 @@
         ]);
       ...
       ```
+
+
+### Lifecycle events
+  : Nest application 시작(부트스트래핑) & 종료의 수명주기
+
+  1. bootstrapping starts
+    - Nest core시작
+  2. onModuleInit ~ onModuleInit()
+    - 호스트 레벨 모듈 INIT ~ 모듈 내부의 객체 (CONTROLLER, PROVIDER) init & 연결
+  3. onApplicationBootstrap ~ onApplicationBootstrap()
+    - 전체 모듈 Init
+  4. 각 서버 listen
+  5. application running
+
+  ---
+
+  1. onModuleDestory ~ onModuleDestroy()
+    - 종료신호 수신 (app.close() -> SIGTERM)
+    - 어찌됐든 이 LC를 타려면, SIGTERM이라는 시스템콜을 작동시켜야 한다!
+  2. beforeApplicationShutdown ~ beforeApplicationShutdown()
+    - 모든 모듈의 연결 닫음 
+  3. onApplicationShutdown ~ onApplicationShutdown()
+    - 모든 모듈의 종료
+  4. Process exit
+
+  - LC hook 사용하기
+    - 각 LC 인터페이스를 받아, hook 메서드 구현!
+      ```
+      import { Injectable, OnModuleInit } from '@nestjs/common';
+
+      @Injectable()
+      export class UsersService implements OnModuleInit {
+          // 모듈초기화 때 작동할 메서드
+          onModuleInit() {
+              console.log(`The module has been initialized.`);
+          }
+
+          // 이런식으로 promise 리턴으로 활용하면, LC가 당연히 지연된다 (비동기 마무리후 진행!)
+          async onModuleInit(): Promise<void> {
+              await this.fetch();
+          }
+      }
+      ```
+    - 종료관련 hook
+      - onModuleDestroy(), beforeApplicationShutdown() 및 onApplicationShutdown()
+      - enableShutdownHooks() 를 부트스트랩에서 호출해 리스너 on
+      ```
+      async function bootstrap() {
+          const app = await NestFactory.create(AppModule);
+
+          // 종료 LC 리스너 ON
+          app.enableShutdownHooks();
+
+          await app.listen(3000);
+      }
+
+      ...
+      // 등록 후, 종료 신호(SIGTERM, SIGINT ..) 받으면 다음 훅을 호출함
+      @Injectable()
+      class UsersService implements OnApplicationShutdown {
+          onApplicationShutdown(signal: string) {
+              console.log(signal); // e.g. "SIGINT"
+          }
+      }
+      ```
+        
+### Platform agnosticism
+  - agnostic xx(SW): 어떤 OS나 기타 백그라운드인지와 관계없이 기능을 기능을 작동할 수 있는 SW
+  - Nest도 플랫폼에 구애받지 않고, 어느정도 로직을 구현할 수 있다. (플랫폼에 종속받지 않도록 짜야함)
+  - express, fastify / http, ws / ...
+
+
+### Testing
+  - unit, e2e, 통합 테스트 등을 빠르게 적용할 수 있도록 세팅.지원해줌 (Jest, Superset)
+  - 이 또한, 특정 테스터에 종속적이지 않아, (agnostic) 교체할 수 있다.
+
+  - unit test
+    - 개별 모듈 및 클래스에 초점을 맞춘 테스트 (JEST)
+    ```
+    import { Test } from '@nestjs/testing';
+    import { CatsController } from './cats.controller';
+    import { CatsService } from './cats.service';
+
+    describe('CatsController', () => {
+    let catsController: CatsController;
+    let catsService: CatsService;
+
+    beforeEach(async () => {
+        const moduleRef = await Test.createTestingModule({  // test 클래스를 통해, 테스트용 모듈 생성
+            controllers: [CatsController],
+            providers: [CatsService],
+        }).compile();   // compile 메서드를 통해, 해당 테스트 모듈 셋업 ~ (async job / 컴파일 후 .get()으로 참조 가능!)
+
+        // 정적 모듈(프로바이더) 참조 (이미 정의된)
+        catsService = moduleRef.get<CatsService>(CatsService);
+        catsController = moduleRef.get<CatsController>(CatsController);
+
+        // 동적 or scope 모듈 참조 (modue ref 에서 본 것처럼)
+        catsService = await moduleRef.resolve(CatsService);
+
+    });
+    // 일반적인 단위 테스트
+    describe('findAll', () => {
+            it('should return an array of cats', async () => {
+                const result = ['test'];
+                jest.spyOn(catsService, 'findAll').mockImplementation(() => result);
+
+                expect(await catsController.findAll()).toBe(result);
+            });
+        });
+    });
+    ```
+  - end-to-end test
+    - API 레벨 (요청단위)의 테스트 (Supertest)
+    ```
+    import * as request from 'supertest';
+    import { Test } from '@nestjs/testing';
+    import { CatsModule } from '../../src/cats/cats.module';
+    import { CatsService } from '../../src/cats/cats.service';
+    import { INestApplication } from '@nestjs/common';
+
+    describe('Cats', () => {
+      let app: INestApplication;
+      let catsService = { findAll: () => ['test'] };
+
+      beforeAll(async () => {
+        const moduleRef = await Test.createTestingModule({  // 테스트 모듈 셋업
+          imports: [CatsModule],
+        })
+        .overrideProvider(CatsService)
+        .useValue(catsService)      // 요청 비즈니스 로직 수행하는 service 갈아끼움
+        .compile();     // 테스트 모듈 컴파일
+
+        app = moduleRef.createNestApplication();    // 전체 Nest 런타임 환경 셋업
+        await app.init();   // 테스트 앱 실행
+      });
+
+      it(`/GET cats`, () => {
+        return request(app.getHttpServer()) // supertest의 request에 nest http 리스너 참조 전달
+        .get('/cats')       // GET /cats 요청
+        .expect(200)
+        .expect({
+          data: catsService.findAll(),
+        });
+      });
+
+      afterAll(async () => {
+        await app.close();
+      });
+    });
+    ```
+    - 대체구현
+      - 위에서 구현한 overrideProvider() 처럼, overrideGuard(), overrideInterceptor(), overrideFilter(),
+        overridePipe() 활용해서 원하는 객체 대체
+      - 값 주입은 useClass() ~ 클래스 주입 / useValue() ~ 인스턴스 주입 / useFactory() ~ 인스턴스 반환하는 함수로 처리!
+  - token 가드 등, 글로벌 객체(인터셉터)에 대한 테스트용 재정의도 가능 (over riding)
+  - 요청 scope에 대한 컨텍스트 참조의 경우, 
+    ```
+    const contextId = ContextIdFactory.create();
+    // ContextIdFactory와 Jest로 참조 얻기 가능!
+    jest
+      .spyOn(ContextIdFactory, 'getByRequest')
+      .mockImplementation(() => contextId);
+    ```

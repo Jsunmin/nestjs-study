@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 
-// httpException을 잡는 인터셉터! ~ 예외필터 기능
+// 예외필터: httpException을 잡는 기능!
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {

@@ -10,6 +10,7 @@ import {
 import { Channels } from './Channels';
 import { Users } from './Users';
 
+// 유저와 채널을 잇는 다:다 테이블 (자체제공하는 ManyToMany를 확장하기 위해 OneToMany 관계들로 따로 생성)
 @Index('UserId', ['UserId'], {})
 @Entity({ schema: 'sleact', name: 'channelmembers' })
 export class ChannelMembers {

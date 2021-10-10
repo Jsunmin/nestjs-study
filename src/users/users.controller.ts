@@ -5,6 +5,7 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -14,6 +15,9 @@ import { ApiTags } from '@nestjs/swagger';
 import { UserDto } from 'src/common/dto/user.dto';
 import { User } from 'src/common/decorator/user.decorator';
 import { UndefinedToNullInterceptor } from 'src/common/interceptors/undefinedToNull.interceptor';
+import { LocalAuthGuard } from 'src/auth/local.auth.guard';
+import { LoggedInGuard } from 'src/auth/logged-in.guard';
+import { LoggedOutGuard } from 'src/auth/not-logged-in.guard';
 
 // 리턴값을 잡아 undefined -> null화 해주는 인터셉터를 /users 컨트롤러에 전체 적용함! 물론 개별 라우터 적용도 가능
 @UseInterceptors(UndefinedToNullInterceptor)
@@ -34,6 +38,7 @@ export class UsersController {
     return user;
   }
 
+  @UseGuards(new LoggedOutGuard()) // 로그아웃상태 보장 가드
   @ApiOperation({ summary: '회원가입' })
   // @UseInterceptors ~ 적용 가능
   @Post()
@@ -51,12 +56,14 @@ export class UsersController {
     status: 500,
     description: '서버 에러',
   })
+  @UseGuards(new LocalAuthGuard())
   @ApiOperation({ summary: '로그인' })
   @Post('login') // sub path 세팅
   logIn(@User() user) {
     return user;
   }
 
+  @UseGuards(new LoggedInGuard()) // 로그인상태 보장 가드
   @ApiOperation({ summary: '로그아웃' })
   @Post('logout')
   logOut(@Req() req, @Res() res) {

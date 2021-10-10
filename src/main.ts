@@ -5,6 +5,7 @@ import * as passport from 'passport';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
 import { ValidationPipe } from '@nestjs/common';
+import { HttpExceptionFilter } from './http-exception.filter';
 
 declare const module: any;
 
@@ -14,6 +15,7 @@ async function bootstrap() {
 
   // 글로벌 인터셉터 기능 붙이기 (예외필터, 가드, 파이프..)
   app.useGlobalPipes(new ValidationPipe());
+  // app.useGlobalFilters(new HttpExceptionFilter()); ~ 얘는 app.module에서 객체로 주입!
 
   // Swagger: JAVA에서 자주 쓰이는 빌더 패턴
   const config = new DocumentBuilder()
@@ -38,6 +40,8 @@ async function bootstrap() {
       },
     }),
   );
+
+  // 세션 사용하기 위한 세팅!
   app.use(passport.initialize());
   app.use(passport.session());
 

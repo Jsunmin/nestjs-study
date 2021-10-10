@@ -81,10 +81,10 @@ export class Users {
   @OneToMany(() => DMs, (dms) => dms.Receiver)
   DMs2: DMs[];
 
-  @OneToMany(() => Mentions, (mentions) => mentions.Sender)
+  @OneToMany(() => Mentions, (mentions) => mentions.Sender) // 보내는 사람에 대한 릴레이션
   Mentions: Mentions[];
 
-  @OneToMany(() => Mentions, (mentions) => mentions.Receiver)
+  @OneToMany(() => Mentions, (mentions) => mentions.Receiver) // 받는 사람에 대한 릴레이션
   Mentions2: Mentions[];
 
   @OneToMany(

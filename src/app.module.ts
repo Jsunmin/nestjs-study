@@ -12,6 +12,7 @@ import { DmsModule } from './dms/dms.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpExceptionFilter } from './http-exception.filter';
 import { APP_FILTER } from '@nestjs/core';
+import { AuthModule } from './auth/auth.module';
 
 // 모든 모듈을 연결하는 root 모듈
 @Module({
@@ -20,6 +21,7 @@ import { APP_FILTER } from '@nestjs/core';
     ConfigModule.forRoot({
       isGlobal: true, // 모듈 바깥에서도 글로벌리 환경변수 접근 가능
     }), // dotenv 활용
+    AuthModule,
     UsersModule,
     WorkspacesModule,
     ChannelsModule,

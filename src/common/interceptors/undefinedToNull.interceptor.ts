@@ -15,10 +15,11 @@ export class UndefinedToNullInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<any> | Promise<Observable<any>> {
-    // 전 부분
+    // pre-controller
     // 컨트롤러에서 리턴하는 `data`를 객체로 한번 감싼 것
     // return next.handle().pipe(map((data) => ({ data })));
 
+    // post-request
     // data가 undefined면 null로!
     return next
       .handle()

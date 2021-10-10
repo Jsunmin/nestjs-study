@@ -27,8 +27,8 @@ export class Workspaces {
   @PrimaryGeneratedColumn({ type: 'int', name: 'id' })
   id: number;
 
-  @Column('varchar', { name: 'name', unique: true, length: 30 }) // 디비내 컬럼
-  name: string; // 서버 어플리케이션 내부에서 쓰는 컬럼명 (ORM)
+  @Column('varchar', { name: 'name', unique: true, length: 30 }) // 디비내 컬럼정보
+  name: string; // 서버 어플리케이션 내부에서 쓰는 컬럼명 (ORM) ~ DB와 서버내 정의를 분리!
 
   @Column('varchar', { name: 'url', unique: true, length: 30 })
   url: string;
@@ -39,7 +39,7 @@ export class Workspaces {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn() // soft delete를 위한 컬럼
   deletedAt: Date | null;
 
   @Column('int', { name: 'OwnerId', nullable: true })

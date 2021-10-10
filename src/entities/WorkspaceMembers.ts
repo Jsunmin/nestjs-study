@@ -10,6 +10,7 @@ import {
 import { Workspaces } from './Workspaces';
 import { Users } from './Users';
 
+// 유저와 워크스페이스를 잇는 다:다 테이블
 @Index('UserId', ['UserId'], {})
 @Entity('workspacemembers', { schema: 'sleact' })
 export class WorkspaceMembers {
@@ -28,6 +29,7 @@ export class WorkspaceMembers {
   @Column('datetime', { name: 'loggedInAt', nullable: true })
   loggedInAt: Date | null;
 
+  // 워크스페이스와 맵핑
   @ManyToOne(() => Workspaces, (workspaces) => workspaces.WorkspaceMembers, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
@@ -35,6 +37,7 @@ export class WorkspaceMembers {
   @JoinColumn([{ name: 'WorkspaceId', referencedColumnName: 'id' }])
   Workspace: Workspaces;
 
+  // 유저와 맵핑
   @ManyToOne(() => Users, (users) => users.WorkspaceMembers, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',

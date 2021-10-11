@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('CHANNEL')
@@ -10,8 +10,8 @@ export class ChannelsController {
   @Post()
   createChannels() {}
 
-  @Get('name')
-  getSpecificChannel() {}
+  @Get(':name')
+  getSpecificChannel(@Param('name') name: string) {}
 
   @Get(':name/chats')
   getChats() {}

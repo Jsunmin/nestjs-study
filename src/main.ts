@@ -14,7 +14,11 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
 
   // 글로벌 인터셉터 기능 붙이기 (예외필터, 가드, 파이프..)
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // argument에 대한 타입설정한 것으로(number, string..) 자동 타입변환 세팅!
+    }),
+  );
   // app.useGlobalFilters(new HttpExceptionFilter()); ~ 얘는 app.module에서 객체로 주입!
 
   // Swagger: JAVA에서 자주 쓰이는 빌더 패턴
